@@ -1,0 +1,13 @@
+<!--
+* Description   :   This is Visualforce Page to display chatter screen.
+* 
+* Created By    :   Bhavi Sharma
+*
+* Created Date  :   05/08/2014
+*
+* Version       :   V_1.0 - Created 
+-->
+
+<apex:page id="page" tabStyle="Account" showHeader="false">
+    <chatter:newsfeed />
+</apex:page>

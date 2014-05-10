@@ -1,0 +1,267 @@
+<!--
+* Description   :   This is Visualforce Page to display Business Card Information related to account and contact.
+* 
+* Created By    :   Bhavi Sharma
+*
+* Created Date  :   03/01/2014
+*
+* Version       :   V_1.0 - Created 
+-->
+
+<apex:page controller="AccountWithContactFormController" id="page" tabStyle="Account" showHeader="false">
+
+    <style>
+        #mergeAccountTable tr {
+            background-color: white;
+        }
+    </style>
+
+    <script>
+    
+        //This method is for unselect all radio buttons for account
+        function setDefaultsForAccount() {
+            var radio = document.getElementsByName('oAll');
+            for(var i=0; i<radio.length;i++) {
+                radio[i].checked = false;
+            }
+            document.getElementById('page:frm:selectedAccountId').value = '';
+            document.getElementById('page:frm:accountActionType').value = 'unCheck';
+            document.getElementById('page:frm:pb:mergeAccountPanel').style.display = 'none';
+        }   
+        
+        //This method is for display account or contact information based on action type
+        function setAction(accId, accountActionType, conId, contactActionType) {
+        
+            //Logs   
+            console.log('Account Id: ' + accId);
+            console.log('Account Action Type: ' + accountActionType);
+            
+                
+            //check for the input and set the hidden parameters
+            if(accId != '')
+                document.getElementById('page:frm:selectedAccountId').value = accId;
+            if(accountActionType != '')
+                document.getElementById('page:frm:accountActionType').value = accountActionType;
+            //Check for account
+            if(accountActionType == 'oAll' || accountActionType == 'oBlank') {
+                document.getElementById('page:frm:pb:mergeAccountPanel').style.display = 'none';
+            }
+            //Check for account merge
+            if(accId != '' && accountActionType == 'oMerge')
+                getMergeAccount();
+         }
+            
+         //This method is for set merge fields for account and contact
+         function setMergeFields(val , fId) {
+            document.getElementById(fId).value = val;
+         }
+        
+        //This method is for validate confirm save
+        function validateConfirm() {
+            
+            var aId = document.getElementById('page:frm:selectedAccountId').value;
+            var aAction = document.getElementById('page:frm:accountActionType').value;
+            var response;
+            
+             //Check fot the valid sObject records
+            if((aId == null || aId.trim() == '') && (aAction == '' || aAction == 'unCheck'))
+                response = confirm('{!$Label.CONFIRMATION_DUPLICATE_NEW_ACCOUNT}');
+            else if((aId != null && aId.trim() != '') && aAction == 'oAll')     
+                response = confirm('{!$Label.CONFIRMATION_EXISTING_ACCOUNT_OALL}');
+            else if((aId != null && aId.trim() != '') && aAction == 'oBlank')     
+                response = confirm('{!$Label.CONFIRMATION_EXISTING_ACCOUNT_OBLANK}');
+            else        
+                response = true;
+            
+            if(response) {
+                
+                //Call submit method and confirm the database save
+                confirmSave();
+            }
+        }
+        
+        //This method is to clear out the complete transaction and reloed the fresh page
+        function cancelAll() {
+            if(confirm('Are you sure?'))
+                location.href = '/apex/AccountWithContactFormPage';
+        }
+    </script>    
+
+    <!-- Page Header -->
+    <apex:sectionHeader title="Business Card" />
+
+    <!-- Block UI component -->
+    <c:BlockUI />
+
+    <!-- Form -->
+    <apex:form id="frm">
+
+        <!-- Background Processing Message -->
+        <apex:actionStatus onStart="blockMe();" onstop="unBlockMe();" id="waitMsg" />
+
+        <!-- Page block -->
+        <apex:pageblock mode="edit" id="pb">
+        
+            <!--Messages-->
+            <apex:pageMessage id="validationMsg" summary="{!error}" severity="warning" rendered="{!Step=='2'}"/>
+            <apex:outputPanel rendered="{!message}" id="info">
+                <apex:pageMessage summary="Information has been saved successfully" severity="INFO" />
+            </apex:outputPanel>
+            
+            <!-- Action Function -->
+            <apex:actionFunction name="confirmSave" action="{!manualAccountSubmit}"  status="waitMsg"/>
+            <apex:actionFunction name="getMergeAccount" action="{!getSelectedMergeAccount}" reRender="validationMsg, aPanel" status="waitMsg"/>
+            
+            <!-- Buttons -->
+            <apex:pageBlockButtons id="pbb">
+                
+                <apex:commandButton value="Next" action="{!validateAccountInsert}"  status="waitMsg" rendered="{!Step=='1'}"/>
+                <apex:commandButton value="Next" onclick="validateConfirm(); return false;" status="waitMsg"  rendered="{!Step=='2'}"/>
+                <input type="button" class="btn" value="Chatter" onclick="window.open('https://c.ap1.visual.force.com/apex/BusinessCardChatter' ,'_blank')"/>
+                <apex:commandButton value="Cancel" onclick="cancelAll(); return false;" />
+                
+                <a href="https://ap1.salesforce.com/00O90000006DwM1?isdtp=nv" target="_blank">View Records</a>
+            </apex:pageBlockButtons>
+            
+            <!-- Account information section -->
+            <apex:pageBlockSection title="Account Information" columns="2" id="pBSA" rendered="{!step='1'}">
+
+                <!-- Account fields -->
+                <apex:inputField value="{!account.Name}" id="aName"/>
+                <apex:inputField value="{!account.Website}" id="aWebsite"/>
+                
+                <apex:pageBlockSectionItem >
+                    Account/Contact Owner
+                    <apex:inputField value="{!contact.OwnerId}" id="cOwner"/>
+                </apex:pageBlockSectionItem>
+                
+            </apex:pageBlockSection>
+            
+            <!--Account fields read only mode-->
+            <apex:pageBlockSection title="Account Information" columns="2" id="pBSAOT" rendered="{!step=='2'}">
+
+                <!-- Account fields -->
+                <apex:outputText value="{!account.Name}" id="otName"/>
+                <apex:inputHidden value="{!account.Name}" id="othName"/>
+                <apex:outputText value="{!account.Website}" id="otWebsite"/>
+                <apex:inputHidden value="{!account.Website}" id="othWebsite"/>
+                
+                <apex:pageBlockSectionItem >
+                    Account/Contact Owner
+                    <apex:outputText value="{!accOwner}" />
+                </apex:pageBlockSectionItem>
+                
+            </apex:pageBlockSection> 
+                     
+            <!-- Potential Duplicates -->
+            <apex:outputPanel id="oPResults" rendered="{!step == '2'}">
+                
+                <!-- Accounts -->
+                <apex:outputPanel rendered="{!duplicateAccounts}">
+                
+                    <!-- Page Block Section displaying duplicate accounts -->
+                    <apex:pageBlockSection title="Potential Duplicate Accounts" collapsible="false"/>
+                    
+                    <!-- Accounts -->
+                    <table class="list" border="0" cellspacing="0" cellpadding="0">
+                        
+                        <!--  Header -->
+                        <tbody>
+                            <tr>
+                                <td colspan="7">
+                                    <input type="button" value="UnCheck All" onClick="setDefaultsForAccount();" class="btn"/>
+                                </td>
+                            </tr>    
+                            <tr class="headerRow">        
+                                <th scope="col" class="zen-deemphasize" width="50px">
+                                    Override All        
+                                </th>
+                                <th scope="col" class="zen-deemphasize" width="50px">
+                                    Override Blank      
+                                </th>
+                                <th scope="col" class="zen-deemphasize" width="40px">
+                                    Merge   
+                                </th>
+                                <apex:repeat value="{!$ObjectType.Account.FieldSets.Business_Card}" var="bCard"> 
+                                <th scope="col" class="zen-deemphasize">
+                                    {!bCard.Label}
+                                </th>
+                                </apex:repeat>
+                            </tr>
+                        
+                            <apex:repeat value="{!mapAccounts}" var="accId" >
+                            <tr class=" dataRow even first" onblur="if (window.hiOff){hiOff(this);}" onfocus="if (window.hiOn){hiOn(this);}" onmouseout="if (window.hiOff){hiOff(this);}" onmouseover="if (window.hiOn){hiOn(this);}">    
+                                <td scope="row" class=" dataCell  " style="text-align:center;">
+                                    <input type="radio" id="oAll" name="oAll" onClick="setAction('{!accId}', 'oAll', '', '');"/>   
+                                </td>
+                                <td scope="row" class=" dataCell  " style="text-align:center;">
+                                    <input type="radio" id="oAll" name="oAll" onClick="setAction('{!accId}', 'oBlank', '', '');"/>      
+                                </td>
+                                <td scope="row" class=" dataCell  " style="text-align:center;">
+                                    <input type="radio" id="oAll" name="oAll" onClick="setAction('{!accId}', 'oMerge', '', '');"/>
+                                </td>
+                                <apex:repeat value="{!$ObjectType.Account.FieldSets.Business_Card}" var="bCard"> 
+                                <td scope="row" class=" dataCell  ">
+                                    {!mapAccounts[accId][bCard]}
+                                </td>
+                                </apex:repeat>
+                            </tr>
+                            </apex:repeat>
+                        </tbody>
+                    </table>
+                    
+                    <apex:outPutpanel id="aPanel" layout="block">
+                    <apex:outPutPanel rendered="{!mergingAccount.Id != null}" layout="block" id="mergeAccountPanel">
+                    <table width="100%" id="mergeAccountTable" cellspacing="1" border="1">
+                        <tr style="background-color:#F2F3F3;">
+                            <td>
+                            </td>
+                            <td>
+                                <b>{!account.Name}(New)</b>
+                            </td>
+                            <td>
+                                <b>{!mergingAccount.Name}(Existing)</b>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="background-color:#F8F8F8;text-align:right;">
+                                <b>Name</b>
+                            </td>
+                            <td>
+                                <input type="radio" name="r1" checked="checked" onChange="setMergeFields('{!account.Name}' , 'page:frm:pb:pBSAOT:othName');">
+                                    {!account.Name}
+                                </input>
+                            </td>
+                            <td>
+                                <input type="radio" name="r1" onChange="setMergeFields('{!mergingAccount.Name}' , 'page:frm:pb:pBSAOT:othName');">
+                                    {!mergingAccount.Name}
+                                </input>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="background-color:#F8F8F8;text-align:right;">
+                                <b>Website</b>
+                            </td>
+                            <td>
+                                <input type="radio" name="r2" checked="checked" onChange="setMergeFields('{!account.Website}' , 'page:frm:pb:pBSAOT:othWebsite');">
+                                    {!account.Website}
+                                </input>
+                            </td>
+                            <td>
+                                <input type="radio" name="r2" onChange="setMergeFields('{!mergingAccount.Website}' , 'page:frm:pb:pBSAOT:othWebsite');">
+                                    {!mergingAccount.Website}
+                                </input>
+                            </td>
+                        </tr>
+                    </table>
+                </apex:outPutPanel>
+                </apex:outPutpanel>
+                </apex:outputPanel>
+                <BR/><BR/>
+                
+            </apex:outputPanel>
+        </apex:pageblock>     
+        <apex:inputHidden value="{!selectedAccountId}" id="selectedAccountId" />
+        <apex:inputHidden value="{!accountActionType}" id="accountActionType" />
+    </apex:form>
+</apex:page>

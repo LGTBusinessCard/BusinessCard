@@ -1,0 +1,548 @@
+<!--
+* Description   :   This is Visualforce Page to display Business Card Information related to account and contact.
+* 
+* Created By    :   Bhavi Sharma
+*
+* Created Date  :   03/01/2014
+*
+* Version       :   V_1.0 - Created 
+-->
+
+<apex:page controller="AccountWithContactFormController" id="page" tabStyle="Account" showHeader="false">
+
+    <style>
+        #mergeContactTable tr {
+            background-color: white;
+        }    
+    </style>
+
+    <script>
+        
+        //This method is for unselect all radio buttons for contact
+        function setDefaultsForContact() {      
+            var radio = document.getElementsByName('oCon');
+            for(var i=0; i<radio.length;i++) {
+                radio[i].checked = false;
+            }
+            document.getElementById('page:frm:selectedContactId').value = '';
+            document.getElementById('page:frm:contactActionType').value = 'unCheck';
+            document.getElementById('page:frm:pb:mergeContactPanel').style.display = 'none';
+        }
+        
+        //This method is for display account or contact information based on action type
+        function setAction(accId, accountActionType, conId, contactActionType) {
+        
+            //Logs   
+            console.log('Account Id: ' + conId);
+            console.log('Contact Action Type: ' + contactActionType);
+                
+            //check for the input and set the hidden parameters
+            if(accId != '')
+                document.getElementById('page:frm:selectedAccountId').value = accId;
+            if(accountActionType != '')
+                document.getElementById('page:frm:accountActionType').value = accountActionType;
+            if(conId != '')
+                document.getElementById('page:frm:selectedContactId').value = conId;
+            if(contactActionType != '')
+                document.getElementById('page:frm:contactActionType').value = contactActionType;
+            
+            //Check for account
+            if(accountActionType == 'oAll' || accountActionType == 'oBlank') {
+                document.getElementById('page:frm:pb:mergeAccountPanel').style.display = 'none';
+            }
+                
+            //Check for contact
+            if(contactActionType == 'oAll' || contactActionType == 'oBlank') {
+                document.getElementById('page:frm:pb:mergeContactPanel').style.display = 'none';
+            }
+                
+            //Check for account merge
+            if(accId != '' && accountActionType == 'oMerge')
+                getMergeAccount();
+            
+            //Check for contact merge
+            if(conId != '' && contactActionType == 'oMerge')
+                getMergeContact();
+        }
+        
+        //This method is for set merge fields for account and contact
+        function setMergeFields(val , fId) {
+            document.getElementById(fId).value = val;
+        }
+        
+        function setMergeIPFields(val , fId) {
+            document.getElementById(fId).value = val;
+        }
+        
+        //This method is for validate confirm save
+        function validateConfirm() {
+            
+            var cId = document.getElementById('page:frm:selectedContactId').value;
+            var cAction = document.getElementById('page:frm:contactActionType').value;
+            var response;
+            
+            //Check fot the valid sObject records
+            if((cId == null || cId.trim() == '') && (cAction == '' || cAction == 'unCheck'))
+                response = confirm('{!$Label.CONFIRMATION_DUPLICATE_NEW_CONTACT}');
+            else if((cId != null && cId.trim() != '') && cAction == 'oAll')   
+                response = confirm('{!$Label.CONFIRMATION_EXISTING_CONTACT_OALL}');
+            else if((cId != null && cId.trim() != '') && cAction == 'oBlank')   
+                response = confirm('{!$Label.CONFIRMATION_EXISTING_CONTACT_OBLANK}');
+            else        
+                response = true;  
+            
+            if(response) {
+                
+                //Call submit method and confirm the database save
+                confirmSave();
+            }
+        }
+        
+        //This method is to clear out the complete transaction and reloed the fresh page
+        function cancelAll() {
+            if(confirm('Are you sure?'))
+                location.href = '/apex/AccountWithContactFormPage';
+        }
+    </script>    
+
+    <!-- Page Header -->
+    <apex:sectionHeader title="Business Card" />
+
+    <!-- Block UI component -->
+    <c:BlockUI />
+
+    <!-- Form -->
+    <apex:form id="frm">
+
+        <!-- Background Processing Message -->
+        <apex:actionStatus onStart="blockMe();" onstop="unBlockMe();" id="waitMsg" />
+
+        <!-- Page block -->
+        <apex:pageblock mode="edit" id="pb">
+        
+            <!--Messages-->
+            <apex:pageMessage id="validationMsg" Summary="{!error}" severity="warning" rendered="{!Step=='4'}"/>
+            <apex:pageMessage summary="Information has been saved successfully" severity="INFO" rendered="{!message}" id="info"/>
+           
+           <!-- Action Function -->
+           <apex:actionFunction name="confirmSave" action="{!manualContactSubmit}" />
+           <apex:actionFunction name="getMergeContact" action="{!getSelectedMergeContact}" reRender="validationMsg, cPanel" status="waitMsg"/>
+            
+            <!-- Buttons -->
+            <apex:pageBlockButtons id="pbb">
+                <apex:commandButton value="Confirm" action="{!validateContactInsert}"  status="waitMsg" rendered="{!Step=='3'}"/>
+                <apex:commandButton value="Confirm" reRender="validationMsg, pbb, oPResults" onclick="validateConfirm(); return false;" rendered="{!Step=='4'}"/>
+                <input type="button" class="btn" value="Chatter" onclick="window.open('https://c.ap1.visual.force.com/apex/BusinessCardChatter' ,'_blank')"/>
+                <apex:commandButton value="Cancel" onclick="cancelAll(); return false;" />
+                <a href="https://ap1.salesforce.com/00O90000006DwM1?isdtp=nv" target="_blank">View Records</a>
+            </apex:pageBlockButtons>
+            
+            <!--Account fields read only mode-->
+            <apex:pageBlockSection title="Account Information" columns="2">
+
+                <!-- Account fields -->
+                <apex:outputText value="{!account.Name}"/>
+                <apex:outputText value="{!account.Id}"/>
+                <apex:outputText value="{!account.Website}"/>
+                
+                <apex:pageBlockSectionItem >
+                    Account/Contact Owner
+                    <apex:outputText value="{!accOwner}"/>
+                </apex:pageBlockSectionItem>
+                
+            </apex:pageBlockSection> 
+            
+            <!-- Contact information section -->
+            <apex:pageblockSection title="Contact Information" columns="2" id="pBSC" rendered="{!step=='3'}">
+
+                <!-- Contact fields -->
+                <apex:inputField value="{!contact.FirstName}" taborderhint="1"/>
+                <apex:inputField value="{!contact.HasOptedOutOfEmail}" taborderhint="9"/>
+                <apex:inputField value="{!contact.LastName}" taborderhint="2"/>
+                <apex:inputField value="{!contact.Gender__c}" taborderhint="10"/>
+                <apex:inputField value="{!contact.Title}" required="false" taborderhint="3"/>
+                <apex:inputField value="{!contact.Skype__c}" taborderhint="11"/>
+                <apex:inputField value="{!contact.Academic_TItle__c}" required="false" taborderhint="4"/>
+                <apex:inputField value="{!contact.MailingStreet}" taborderhint="12"/>
+                <apex:inputField value="{!contact.Email}" required="true" taborderhint="5"/>
+                <apex:inputField value="{!contact.MailingCity}" taborderhint="13"/>
+                <apex:inputField value="{!contact.Business_Phone__c}" taborderhint="6"/>
+                <apex:inputField value="{!contact.MailingCountry}" taborderhint="14"/>
+                <apex:inputField value="{!contact.MobilePhone}" taborderhint="7"/>
+                <apex:inputField value="{!contact.Mailingpostalcode}" taborderhint="15"/>
+                <apex:inputField value="{!contact.OtherPhone}" taborderhint="8"/>
+                <apex:inputField value="{!contact.Note__c}" taborderhint="17"/>
+            </apex:pageblockSection>
+            
+            <!-- Contact information section -->
+            <apex:pageblockSection title="Contact Information" columns="2" id="pBSCOT" rendered="{!step=='4'}">
+
+                <!-- Contact fields -->
+                <apex:outputText value="{!contact.FirstName}" id="cFirstName"/>
+                <apex:outputText value="{!contact.HasOptedOutOfEmail}" id="cOptEmail"/>
+                <apex:outputText value="{!contact.LastName}" id="cLastName"/>
+                <apex:outputText value="{!contact.Gender__c}" id="cGender"/>
+                <apex:outputText value="{!contact.Title}" id="cTitle"/>
+                <apex:outputText value="{!contact.Skype__c}" id="cSkype"/>
+                <apex:outputText value="{!contact.Academic_TItle__c}" id="cATitle"/>
+                <apex:outputText value="{!contact.MailingStreet}" id="cMailingStreet"/>
+                <apex:outputText value="{!contact.Email}" id="cEmail"/>
+                <apex:outputText value="{!contact.MailingCity}" id="cCity"/>
+                <apex:outputText value="{!contact.Business_Phone__c}" id="cPhone"/>
+                <apex:outputText value="{!contact.MailingCountry}" id="cCountry"/>
+                <apex:outputText value="{!contact.MobilePhone}" id="cMobilePhone"/>
+                <apex:outputText value="{!contact.Mailingpostalcode}" id="cPostalCode"/>
+                <apex:outputText value="{!contact.OtherPhone}" id="cOtherPhone"/>
+                <apex:outputText value="{!contact.Note__c}" id="cNote"/>
+                <apex:inputHidden value="{!contact.FirstName}" id="chFirstName"/>
+                <apex:inputHidden value="{!contact.HasOptedOutOfEmail}" id="chOptEmail"/>
+                <apex:inputHidden value="{!contact.LastName}" id="chLastName"/>
+                <apex:inputHidden value="{!contact.Gender__c}" id="chGender"/>
+                <apex:inputHidden value="{!contact.Title}" id="chTitle"/>
+                <apex:inputHidden value="{!contact.Skype__c}" id="chSkype"/>
+                <apex:inputHidden value="{!contact.Academic_TItle__c}" id="chATitle"/>
+                <apex:inputHidden value="{!contact.MailingStreet}" id="chMailingStreet"/>
+                <apex:inputHidden value="{!contact.Email}" id="chEmail"/>
+                <apex:inputHidden value="{!contact.MailingCity}" id="chCity"/>
+                <apex:inputHidden value="{!contact.Business_Phone__c}" id="chPhone"/>
+                <apex:inputHidden value="{!contact.MailingCountry}" id="chCountry"/>
+                <apex:inputHidden value="{!contact.MobilePhone}" id="chMobilePhone"/>
+                <apex:inputHidden value="{!contact.Mailingpostalcode}" id="chPostalCode"/>
+                <apex:inputHidden value="{!contact.OtherPhone}" id="chOtherPhone"/>
+                <apex:inputHidden value="{!contact.Note__c}" id="chNote"/>
+                <apex:inputHidden value="{!contact.AccountId}" id="cAccountId"/>
+            </apex:pageblockSection>
+            
+            <!-- Potential Duplicates -->
+            <apex:outputPanel rendered="{!step == '4'}">
+                 <!-- Contacts -->
+                <apex:outputPanel rendered="{!duplicateContacts}">
+                
+                    <!-- Page Block Section displaying duplicate contacts -->
+                    <apex:pageBlockSection title="Potential Duplicate Contacts" collapsible="false"/>
+                    <table class="list" border="0" cellspacing="0" cellpadding="0">
+                        
+                        <!--  Header -->
+                        <tbody>
+                            <tr>
+                                <td colspan="7">
+                                    <input type="button" value="UnCheck All" onClick="setDefaultsForContact();" class="btn"/>
+                                </td>
+                            </tr>    
+                            <tr class="headerRow">
+                                <th scope="col" class="zen-deemphasize" width="50px">
+                                    Override All        
+                                </th>
+                                <th scope="col" class="zen-deemphasize" width="50px">
+                                    Override Blank      
+                                </th>
+                                <th scope="col" class="zen-deemphasize" width="40px">
+                                    Merge   
+                                </th>
+                                <apex:repeat value="{!$ObjectType.Contact.FieldSets.Busines_Card_Page}" var="bCard"> 
+                                <th scope="col" class="zen-deemphasize">
+                                    {!bCard.Label}
+                                </th>
+                                </apex:repeat>
+                            </tr>
+                        
+                            <apex:repeat value="{!mapContacts}" var="conId" >
+                            <tr class=" dataRow even first" onblur="if (window.hiOff){hiOff(this);}" onfocus="if (window.hiOn){hiOn(this);}" onmouseout="if (window.hiOff){hiOff(this);}" onmouseover="if (window.hiOn){hiOn(this);}">    
+                                <td scope="row" class=" dataCell  " style="text-align:center;">
+                                    <input type="radio" id="oCon" name="oCon" onClick="setAction('', '', '{!conId}', 'oAll');"/>  
+                                </td>
+                                <td scope="row" class=" dataCell  " style="text-align:center;">
+                                    <input type="radio" id="oCon" name="oCon" onClick="setAction('', '', '{!conId}', 'oBlank');"/>      
+                                </td>
+                                <td scope="row" class=" dataCell  " style="text-align:center;">
+                                    <input type="radio" id="oCon" name="oCon" onClick="setAction('', '', '{!conId}', 'oMerge');"/>
+                                </td>
+                                <apex:repeat value="{!$ObjectType.Contact.FieldSets.Busines_Card_Page}" var="bCard"> 
+                                <td scope="row" class=" dataCell  ">
+                                    {!mapContacts[conId][bCard]}
+                                </td>
+                                </apex:repeat>
+                            </tr>   
+                            </apex:repeat>
+                        </tbody>
+                    </table>
+                    
+                    <!-- Output Panel displaying merging information for contacts -->
+                    <apex:outPutPanel id="cPanel" layout="block">
+                    <apex:outPutPanel rendered="{!mergingContact.Id != null}" layout="block" id="mergeContactPanel">
+                        <table width="100%" id="mergeContactTable" cellspacing="1" border="1">
+                            <tr style="background-color:#F2F3F3;">
+                                <td>
+                                </td>
+                                <td>
+                                    <b>{!contact.FirstName} {!contact.LastName}(New)</b>
+                                </td>
+                                <td>
+                                    <b>{!mergingContact.FirstName} {!mergingContact.LastName}(Existing)</b>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="background-color:#F8F8F8;text-align:right;">
+                                    <b>Account Name</b>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r355" checked="checked" onChange="setMergeIPFields('{!contact.AccountId}' , 'page:frm:pb:pBSCOT:cAccountId');">
+                                        {!accountName}
+                                    </input>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r355" onChange="setMergeIPFields('{!mergingContact.AccountId}' , 'page:frm:pb:pBSCOT:cAccountId');">
+                                        {!mergingContact.Account.Name}
+                                    </input> 
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="background-color:#F8F8F8;text-align:right;">
+                                    <b>FirstName</b>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r3" checked="checked" onChange="setMergeFields('{!contact.FirstName}' , 'page:frm:pb:pBSCOT:chFirstName');">
+                                        {!contact.FirstName}
+                                    </input>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r3" onChange="setMergeFields('{!mergingContact.FirstName}' , 'page:frm:pb:pBSCOT:chFirstName');">
+                                        {!mergingContact.FirstName}
+                                    </input>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="background-color:#F8F8F8;text-align:right;">
+                                    <b>LastName</b>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r4" checked="checked" onChange="setMergeFields('{!contact.LastName}' , 'page:frm:pb:pBSCOT:chLastName');">
+                                        {!contact.LastName}
+                                    </input>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r4" onChange="setMergeFields('{!mergingContact.LastName}' , 'page:frm:pb:pBSCOT:chLastName');">
+                                        {!mergingContact.LastName}
+                                    </input>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="background-color:#F8F8F8;text-align:right;">
+                                    <b>Email Opt Out</b>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r5" checked="checked" onChange="setMergeFields('{!contact.HasOptedOutOfEmail}' , 'page:frm:pb:pBSCOT:chOptEmail');">
+                                        {!contact.HasOptedOutOfEmail}
+                                    </input>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r5" onChange="setMergeFields('{!mergingContact.HasOptedOutOfEmail}' , 'page:frm:pb:pBSCOT:chOptEmail');">
+                                        {!mergingContact.HasOptedOutOfEmail}
+                                    </input>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="background-color:#F8F8F8;text-align:right;">
+                                    <b>Gender</b>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r6" checked="checked" onChange="setMergeFields('{!contact.Gender__c}' , 'page:frm:pb:pBSCOT:chGender');">
+                                        {!contact.Gender__c}
+                                    </input>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r6" onChange="setMergeFields('{!mergingContact.Gender__c}' , 'page:frm:pb:pBSCOT:chGender');">
+                                        {!mergingContact.Gender__c}
+                                    </input>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="background-color:#F8F8F8;text-align:right;">
+                                    <b>Title</b>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r7" checked="checked" onChange="setMergeFields('{!contact.Title}' , 'page:frm:pb:pBSCOT:chTitle');">
+                                        {!contact.Title}
+                                    </input>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r7" onChange="setMergeFields('{!mergingContact.Title}' , 'page:frm:pb:pBSCOT:chTitle');">
+                                        {!mergingContact.Title}
+                                    </input>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="background-color:#F8F8F8;text-align:right;">
+                                    <b>Skype</b>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r8" checked="checked" onChange="setMergeFields('{!contact.Skype__c}' , 'page:frm:pb:pBSCOT:chSkype');">
+                                        {!contact.Skype__c}
+                                    </input>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r8" onChange="setMergeFields('{!mergingContact.Skype__c}' , 'page:frm:pb:pBSCOT:chSkype');">
+                                        {!mergingContact.Skype__c}
+                                    </input>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="background-color:#F8F8F8;text-align:right;">
+                                    <b>Academic Title</b>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r9" checked="checked" onChange="setMergeFields('{!contact.Academic_TItle__c}' , 'page:frm:pb:pBSCOT:chATitle');">
+                                        {!contact.Academic_TItle__c}
+                                    </input>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r9" onChange="setMergeFields('{!mergingContact.Academic_TItle__c}' , 'page:frm:pb:pBSCOT:chATitle');">
+                                        {!mergingContact.Academic_TItle__c}
+                                    </input>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="background-color:#F8F8F8;text-align:right;">
+                                    <b>Mailing Street</b>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r10" checked="checked" onChange="setMergeFields('{!contact.MailingStreet}' , 'page:frm:pb:pBSCOT:chMailingStreet');">
+                                        {!contact.MailingStreet}
+                                    </input>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r10" onChange="setMergeFields('{!mergingContact.MailingStreet}' , 'page:frm:pb:pBSCOT:chMailingStreet');">
+                                        {!mergingContact.MailingStreet}
+                                    </input>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="background-color:#F8F8F8;text-align:right;">
+                                    <b>Email</b>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r11" checked="checked" onChange="setMergeFields('{!contact.Email}' , 'page:frm:pb:pBSCOT:chEmail');">
+                                        {!contact.Email}
+                                    </input>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r11" onChange="setMergeFields('{!mergingContact.Email}' , 'page:frm:pb:pBSCOT:chEmail');">
+                                        {!mergingContact.Email}
+                                    </input>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="background-color:#F8F8F8;text-align:right;">
+                                    <b>Mailing City</b>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r12" checked="checked" onChange="setMergeFields('{!contact.MailingCity}' , 'page:frm:pb:pBSCOT:chCity');">
+                                        {!contact.MailingCity}
+                                    </input>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r12" onChange="setMergeFields('{!mergingContact.MailingCity}' , 'page:frm:pb:pBSCOT:chCity');">
+                                        {!mergingContact.MailingCity}
+                                    </input>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="background-color:#F8F8F8;text-align:right;">
+                                    <b>Business Phone</b>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r13" checked="checked" onChange="setMergeFields('{!contact.Business_Phone__c}' , 'page:frm:pb:pBSCOT:chPhone');">
+                                        {!contact.Business_Phone__c}
+                                    </input>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r13" onChange="setMergeFields('{!mergingContact.Business_Phone__c}' , 'page:frm:pb:pBSCOT:chPhone');">
+                                        {!mergingContact.Business_Phone__c}
+                                    </input>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="background-color:#F8F8F8;text-align:right;">
+                                    <b>Mailing Country</b>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r14" checked="checked" onChange="setMergeFields('{!contact.MailingCountry}' , 'page:frm:pb:pBSCOT:chCountry');">
+                                        {!contact.MailingCountry}
+                                    </input>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r14" onChange="setMergeFields('{!mergingContact.MailingCountry}' , 'page:frm:pb:pBSCOT:chCountry');">
+                                        {!mergingContact.MailingCountry}
+                                    </input>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="background-color:#F8F8F8;text-align:right;">
+                                    <b>Mobile Phone</b>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r15" checked="checked" onChange="setMergeFields('{!contact.MobilePhone}' , 'page:frm:pb:pBSCOT:chMobilePhone');">
+                                        {!contact.MobilePhone}
+                                    </input>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r15" onChange="setMergeFields('{!mergingContact.MobilePhone}' , 'page:frm:pb:pBSCOT:chMobilePhone');">
+                                        {!mergingContact.MobilePhone}
+                                    </input>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="background-color:#F8F8F8;text-align:right;">
+                                    <b>Mailing Zip/Postal Code</b>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r16" checked="checked" onChange="setMergeFields('{!contact.Mailingpostalcode}' , 'page:frm:pb:pBSCOT:chPostalCode');">
+                                        {!contact.Mailingpostalcode}
+                                    </input>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r16" onChange="setMergeFields('{!mergingContact.Mailingpostalcode}' , 'page:frm:pb:pBSCOT:chPostalCode');">
+                                        {!mergingContact.Mailingpostalcode}
+                                    </input>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="background-color:#F8F8F8;text-align:right;">
+                                    <b>Other Phone</b>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r17" checked="checked" onChange="setMergeFields('{!contact.OtherPhone}' , 'page:frm:pb:pBSCOT:chOtherPhone');">
+                                        {!contact.OtherPhone}
+                                    </input>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r17" onChange="setMergeFields('{!mergingContact.OtherPhone}' , 'page:frm:pb:pBSCOT:chOtherPhone');">
+                                        {!mergingContact.OtherPhone}
+                                    </input>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="background-color:#F8F8F8;text-align:right;">
+                                    <b>Initial Note</b>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r18" checked="checked" onChange="setMergeFields('{!contact.Note__c}' , 'page:frm:pb:pBSCOT:chNote');">
+                                        {!contact.Note__c}
+                                    </input>
+                                </td>
+                                <td>
+                                    <input type="radio" name="r18" onChange="setMergeFields('{!mergingContact.Note__c}' , 'page:frm:pb:pBSCOT:chNote');">
+                                        {!mergingContact.Note__c}
+                                    </input>
+                                </td>
+                            </tr>
+                        </table>
+                 </apex:outPutPanel>
+                </apex:outPutPanel>
+                </apex:outputPanel>
+            </apex:outputPanel>
+        </apex:pageblock>     
+        <apex:inputHidden value="{!selectedContactId}" id="selectedContactId" />
+        <apex:inputHidden value="{!contactActionType}" id="contactActionType" />
+    </apex:form>
+</apex:page>

@@ -1,0 +1,13 @@
+#Sat May 10 11:38:11 IST 2014
+eclipse.preferences.version=1
+endpointApiVersion=26.0
+endpointEnvironment=Production/Developer Edition
+endpointServer=www.salesforce.com
+httpsProtocol=true
+ideVersion=26.0
+keependpoint=false
+metadataFormatVersion=26.0
+namespacePrefix=
+packageName=unpackaged
+readTimeout=400
+username=admin@lgt.com.dupeblocker

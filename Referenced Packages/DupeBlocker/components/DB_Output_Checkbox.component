@@ -1,0 +1,6 @@
+<apex:component >
+	<apex:attribute name="value" type="Boolean" required="true" description="" />
+
+	<img src="{!IF(value=true,'/img/checkbox_checked.gif','/img/checkbox_unchecked.gif')}" alt="{!IF(value=true,'Checked','Not Checked')}" width="21"
+		height="16" class="checkImg" title="Checked" />
+</apex:component>
