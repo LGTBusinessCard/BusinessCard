@@ -10,7 +10,7 @@
  **/
 public without sharing class AccountWithContactFormController {
 
-    //Account and Contact Properties
+    //Account and Contact
     public Account account { get; set; }
     public Contact contact { get; set; }
 
